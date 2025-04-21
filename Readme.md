@@ -2,7 +2,7 @@
 
 A simple web-based GUI interface for managing and controlling a web crawler built in Go.
 
-![Web Crawler Dashboard](images/dashboard.png)
+![Web Crawler Dashboard](image/dashboard.png)
 
 ## ⚠️ IMPORTANT LEGAL NOTICE
 
