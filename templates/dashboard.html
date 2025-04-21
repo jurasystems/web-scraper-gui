@@ -1,0 +1,560 @@
+<!-- templates/dashboard.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 2rem;
+        }
+        .domain-item {
+            border-left: 4px solid #0d6efd;
+            padding-left: 10px;
+            margin-bottom: 10px;
+        }
+        .card {
+            margin-bottom: 20px;
+        }
+        .domain-status-pending { color: #6c757d; }
+        .domain-status-active { color: #198754; }
+        .domain-status-completed { color: #0d6efd; }
+        .domain-status-failed { color: #dc3545; }
+        .activity-log-container {
+            height: 300px; 
+            overflow-y: auto; 
+            background: #f8f9fa; 
+            padding: 10px; 
+            border-radius: 5px; 
+            font-family: monospace; 
+            font-size: 0.85rem;
+        }
+        .log-entry {
+            padding: 2px 0;
+            border-bottom: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <h1 class="mb-4">Web Crawler Dashboard</h1>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Crawler Status</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="status-info">
+                                    <p><strong>Status:</strong> <span id="crawler-status">Loading...</span></p>
+                                    <p><strong>Queue Size:</strong> <span id="queue-size">-</span></p>
+                                    <p><strong>Pages Visited:</strong> <span id="visited-size">-</span></p>
+                                    <p><strong>Full Page Download:</strong> <span id="full-page-status" class="badge bg-secondary">Disabled</span></p>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <button id="start-crawler" class="btn btn-success">Start Crawler</button>
+                                    <button id="stop-crawler" class="btn btn-danger">Stop Crawler</button>
+                                    <a href="/schedule" class="btn btn-info ms-2">Schedule Manager</a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Configuration</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="config-form">
+                                    <div class="mb-3">
+                                        <label for="concurrency" class="form-label">Concurrency</label>
+                                        <input type="number" class="form-control" id="concurrency" min="1" max="20">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="delay" class="form-label">Delay (ms)</label>
+                                        <input type="number" class="form-control" id="delay" min="0" max="10000">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="maxDepth" class="form-label">Max Depth</label>
+                                        <input type="number" class="form-control" id="maxDepth" min="1" max="10">
+                                    </div>
+                                    <div class="mb-3 form-check">
+                                        <input type="checkbox" class="form-check-input" id="stayInDomain">
+                                        <label class="form-check-label" for="stayInDomain">Stay in Domain</label>
+                                    </div>
+                                    <div class="mb-3 form-check">
+                                        <input type="checkbox" class="form-check-input" id="downloadFullPage">
+                                        <label class="form-check-label" for="downloadFullPage">Download Full Pages</label>
+                                        <div class="form-text text-muted">Store complete HTML content in database</div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Update Configuration</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5>Domains to Crawl</h5>
+                                <div>
+                                    <button id="import-csv-btn" class="btn btn-sm btn-secondary" data-bs-toggle="modal" data-bs-target="#importCsvModal">
+                                        Import CSV
+                                    </button>
+                                    <button id="add-domain-btn" class="btn btn-sm btn-primary ms-2" data-bs-toggle="modal" data-bs-target="#addDomainModal">
+                                        Add Domain
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="domains-list" id="domains-list">
+                                    <p>Loading domains...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card mt-3">
+                            <div class="card-header">
+                                <h5>Crawler Activity</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="activity-log-container">
+                                    <div id="activity-log">
+                                        <p class="text-muted">No activity yet</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Domain Modal -->
+    <div class="modal fade" id="addDomainModal" tabindex="-1" aria-labelledby="addDomainModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addDomainModalLabel">Add Domain</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="add-domain-form">
+                        <div class="mb-3">
+                            <label for="domain-url" class="form-label">Domain URL</label>
+                            <input type="url" class="form-control" id="domain-url" placeholder="https://example.com" required>
+                            <div class="form-text">Enter a full URL including the protocol (http:// or https://)</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="submit-domain">Add Domain</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import CSV Modal -->
+    <div class="modal fade" id="importCsvModal" tabindex="-1" aria-labelledby="importCsvModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="importCsvModalLabel">Import Domains from CSV</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="import-csv-form">
+                        <div class="mb-3">
+                            <label for="csv-file" class="form-label">CSV File</label>
+                            <input class="form-control" type="file" id="csv-file" accept=".csv" required>
+                            <div class="form-text">CSV file should have one URL per line in the first column</div>
+                        </div>
+                    </form>
+                    <div id="import-results" class="d-none alert alert-info">
+                        Processing...
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="submit-csv">Import</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // DOM elements
+        const startBtn = document.getElementById('start-crawler');
+        const stopBtn = document.getElementById('stop-crawler');
+        const configForm = document.getElementById('config-form');
+        const addDomainForm = document.getElementById('add-domain-form');
+        const submitDomainBtn = document.getElementById('submit-domain');
+        const domainsList = document.getElementById('domains-list');
+        const activityLog = document.getElementById('activity-log');
+        const submitCsvBtn = document.getElementById('submit-csv');
+
+        // Status elements
+        const crawlerStatus = document.getElementById('crawler-status');
+        const queueSize = document.getElementById('queue-size');
+        const visitedSize = document.getElementById('visited-size');
+
+        // Config fields
+        const concurrencyField = document.getElementById('concurrency');
+        const delayField = document.getElementById('delay');
+        const maxDepthField = document.getElementById('maxDepth');
+        const stayInDomainField = document.getElementById('stayInDomain');
+        const downloadFullPageField = document.getElementById('downloadFullPage');
+
+        // Flag to track if configuration has been loaded at least once
+        let configInitialized = false;
+        
+        // Load configuration from localStorage on page load
+        document.addEventListener('DOMContentLoaded', loadConfigFromStorage);
+        
+        // Track when user changes config fields
+        concurrencyField.addEventListener('change', saveConfigToStorage);
+        delayField.addEventListener('change', saveConfigToStorage);
+        maxDepthField.addEventListener('change', saveConfigToStorage);
+        stayInDomainField.addEventListener('change', saveConfigToStorage);
+        downloadFullPageField.addEventListener('change', saveConfigToStorage);
+
+        // Fetch status initially and every 2 seconds
+        fetchStatus();
+        setInterval(fetchStatus, 2000);
+
+        // Event listeners
+        startBtn.addEventListener('click', startCrawler);
+        stopBtn.addEventListener('click', stopCrawler);
+        configForm.addEventListener('submit', updateConfig);
+        submitDomainBtn.addEventListener('click', addDomain);
+        submitCsvBtn.addEventListener('click', importCsv);
+
+        // Functions to handle configuration persistence
+        function saveConfigToStorage() {
+            const config = {
+                concurrency: parseInt(concurrencyField.value) || 3,
+                delay: parseInt(delayField.value) || 1000,
+                maxDepth: parseInt(maxDepthField.value) || 3,
+                stayInDomain: stayInDomainField.checked,
+                downloadFullPage: downloadFullPageField.checked
+            };
+            localStorage.setItem('crawlerConfig', JSON.stringify(config));
+        }
+        
+        function loadConfigFromStorage() {
+            const savedConfig = localStorage.getItem('crawlerConfig');
+            if (savedConfig) {
+                try {
+                    const config = JSON.parse(savedConfig);
+                    concurrencyField.value = config.concurrency;
+                    delayField.value = config.delay;
+                    maxDepthField.value = config.maxDepth;
+                    stayInDomainField.checked = config.stayInDomain;
+                    downloadFullPageField.checked = config.downloadFullPage;
+                    configInitialized = true;
+                } catch (e) {
+                    console.error('Error parsing saved config:', e);
+                }
+            }
+        }
+
+        // Functions
+        async function fetchStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                // Update status information
+                crawlerStatus.textContent = data.isRunning ? 'Running' : 'Stopped';
+                crawlerStatus.className = data.isRunning ? 'text-success' : 'text-danger';
+                queueSize.textContent = data.queueSize;
+                visitedSize.textContent = data.visitedSize;
+                
+                // Update button states
+                startBtn.disabled = data.isRunning;
+                stopBtn.disabled = !data.isRunning;
+                
+                // Update configuration fields ONLY if we haven't initialized them yet
+                // This prevents the server from overwriting user changes
+                if (data.config && !configInitialized) {
+                    concurrencyField.value = data.config.concurrency;
+                    delayField.value = data.config.delay;
+                    maxDepthField.value = data.config.maxDepth;
+                    stayInDomainField.checked = data.config.stayInDomain;
+                    downloadFullPageField.checked = data.config.downloadFullPage;
+                    
+                    // Save this initial config to localStorage
+                    saveConfigToStorage();
+                    configInitialized = true;
+                }
+                
+                // Update domains list
+                if (data.domains) {
+                    renderDomainsList(data.domains);
+                }
+
+                // Update activity log
+                if (data.activityLog) {
+                    updateActivityLog(data.activityLog);
+                }
+            } catch (error) {
+                console.error('Error fetching status:', error);
+            }
+        }
+
+        function renderDomainsList(domains) {
+            if (domains.length === 0) {
+                domainsList.innerHTML = '<p>No domains added yet.</p>';
+                return;
+            }
+            
+            let html = '';
+            domains.forEach(domain => {
+                const lastCrawl = domain.lastCrawl ? new Date(domain.lastCrawl).toLocaleString() : 'Never';
+                
+                html += `
+                    <div class="domain-item">
+                        <div class="d-flex justify-content-between">
+                            <h5>${domain.url}</h5>
+                            <button class="btn btn-sm btn-outline-danger delete-domain" data-id="${domain.id}">
+                                Remove
+                            </button>
+                        </div>
+                        <div>
+                            <span class="domain-status-${domain.status.toLowerCase()}">${domain.status}</span>
+                            <span class="ms-3">Pages: ${domain.pagesFound}</span>
+                            <span class="ms-3">Last Crawl: ${lastCrawl}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            domainsList.innerHTML = html;
+            
+            // Add event listeners to delete buttons
+            document.querySelectorAll('.delete-domain').forEach(btn => {
+                btn.addEventListener('click', () => removeDomain(btn.dataset.id));
+            });
+        }
+
+        function updateActivityLog(logs) {
+            if (!logs || logs.length === 0) {
+                activityLog.innerHTML = '<p class="text-muted">No activity yet</p>';
+                return;
+            }
+            
+            let html = '';
+            logs.forEach(log => {
+                html += `<div class="log-entry">${log}</div>`;
+            });
+            
+            activityLog.innerHTML = html;
+        }
+
+        async function startCrawler() {
+            try {
+                const response = await fetch('/api/start', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    fetchStatus();
+                } else {
+                    alert('Failed to start crawler: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error starting crawler:', error);
+                alert('Error starting crawler');
+            }
+        }
+
+        async function stopCrawler() {
+            try {
+                const response = await fetch('/api/stop', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    fetchStatus();
+                } else {
+                    alert('Failed to stop crawler: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error stopping crawler:', error);
+                alert('Error stopping crawler');
+            }
+        }
+
+        async function updateConfig(e) {
+            e.preventDefault();
+            
+            const config = {
+                concurrency: parseInt(concurrencyField.value) || 3,
+                delay: parseInt(delayField.value) || 1000,
+                maxDepth: parseInt(maxDepthField.value) || 3,
+                stayInDomain: stayInDomainField.checked,
+                downloadFullPage: downloadFullPageField.checked
+            };
+            
+            // Save to localStorage
+            saveConfigToStorage();
+            
+            // Debug log to verify what's being sent
+            console.log('Sending config:', config);
+            
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Configuration updated successfully');
+                } else {
+                    alert('Failed to update configuration: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error updating configuration:', error);
+                alert('Error updating configuration');
+            }
+        }
+
+        async function addDomain() {
+            const domainURL = document.getElementById('domain-url').value;
+            
+            if (!domainURL) {
+                alert('Please enter a valid URL');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/domains', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url: domainURL })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Close modal and reset form
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('addDomainModal'));
+                    modal.hide();
+                    document.getElementById('domain-url').value = '';
+                    
+                    fetchStatus();
+                } else {
+                    alert('Failed to add domain: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error adding domain:', error);
+                alert('Error adding domain');
+            }
+        }
+
+        async function removeDomain(id) {
+            if (!confirm('Are you sure you want to remove this domain?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/domains/${id}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    fetchStatus();
+                } else {
+                    alert('Failed to remove domain: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error removing domain:', error);
+                alert('Error removing domain');
+            }
+        }
+
+        async function importCsv() {
+            const fileInput = document.getElementById('csv-file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a CSV file');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('csv_file', file);
+            
+            const resultsDiv = document.getElementById('import-results');
+            resultsDiv.classList.remove('d-none');
+            resultsDiv.classList.remove('alert-success', 'alert-danger');
+            resultsDiv.classList.add('alert-info');
+            resultsDiv.textContent = 'Processing...';
+            
+            try {
+                const response = await fetch('/api/domains/import', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultsDiv.classList.remove('alert-info');
+                    resultsDiv.classList.add('alert-success');
+                    
+                    let message = `Successfully imported ${data.results.added} of ${data.results.total} domains.`;
+                    
+                    if (data.results.failed > 0) {
+                        message += ` Failed to import ${data.results.failed} domains.`;
+                        
+                        if (data.results.failedUrls.length > 0) {
+                            message += '<ul class="mt-2">';
+                            data.results.failedUrls.forEach(url => {
+                                message += `<li>${url}</li>`;
+                            });
+                            message += '</ul>';
+                        }
+                    }
+                    
+                    resultsDiv.innerHTML = message;
+                    fetchStatus(); // Update the domains list
+                } else {
+                    resultsDiv.classList.remove('alert-info');
+                    resultsDiv.classList.add('alert-danger');
+                    resultsDiv.textContent = 'Error: ' + (data.error || 'Unknown error');
+                }
+            } catch (error) {
+                console.error('Error importing CSV:', error);
+                resultsDiv.classList.remove('alert-info');
+                resultsDiv.classList.add('alert-danger');
+                resultsDiv.textContent = 'Error importing CSV';
+            }
+        }
+        const fullPageStatusEl = document.getElementById('full-page-status');
+if (data.config && data.config.downloadFullPage) {
+    fullPageStatusEl.textContent = 'Enabled';
+    fullPageStatusEl.className = 'badge bg-success';
+} else {
+    fullPageStatusEl.textContent = 'Disabled';
+    fullPageStatusEl.className = 'badge bg-secondary';
+}
+    </script>
+</body>
+</html>

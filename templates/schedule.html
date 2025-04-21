@@ -1,0 +1,599 @@
+<!-- templates/schedule.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 2rem;
+        }
+        .schedule-item {
+            border-left: 4px solid #0d6efd;
+            padding-left: 10px;
+            margin-bottom: 10px;
+        }
+        .card {
+            margin-bottom: 20px;
+        }
+        .schedule-active { color: #198754; }
+        .schedule-inactive { color: #6c757d; }
+        .next-run { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1>Crawler Schedule Manager</h1>
+                    <div>
+                        <a href="/" class="btn btn-outline-primary">Back to Dashboard</a>
+                        <a href="/groups" class="btn btn-outline-info ms-2">Group Manager</a>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5>Scheduled Domain Groups</h5>
+                                <button id="add-schedule-btn" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addScheduleModal">
+                                    Add Schedule
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <div id="schedules-list">
+                                    <p>Loading scheduled groups...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Schedule Modal -->
+    <div class="modal fade" id="addScheduleModal" tabindex="-1" aria-labelledby="addScheduleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addScheduleModalLabel">Add Schedule</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="add-schedule-form">
+                        <div class="mb-3">
+                            <label for="group-select" class="form-label">Domain Group</label>
+                            <select class="form-select" id="group-select" required>
+                                <option value="">Select a domain group</option>
+                                <!-- Groups will be loaded dynamically -->
+                            </select>
+                            <div class="form-text">
+                                <a href="/groups" target="_blank">Create a new group</a> if you don't see the one you need.
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="frequency" class="form-label">Frequency</label>
+                            <select class="form-select" id="frequency" required>
+                                <option value="hourly">Hourly</option>
+                                <option value="daily" selected>Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                            </select>
+                        </div>
+                        <div class="mb-3" id="day-select-container" style="display: none;">
+                            <label for="specific-day" class="form-label">Day</label>
+                            <select class="form-select" id="specific-day">
+                                <!-- Will be populated based on frequency -->
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="specific-hour" class="form-label">Hour (0-23)</label>
+                            <input type="number" class="form-control" id="specific-hour" min="0" max="23" value="0">
+                            <div class="form-text">Choose the hour when the crawl should run (0-23)</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="submit-schedule">Add Schedule</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Schedule Modal -->
+    <div class="modal fade" id="editScheduleModal" tabindex="-1" aria-labelledby="editScheduleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editScheduleModalLabel">Edit Schedule</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-schedule-form">
+                        <input type="hidden" id="edit-schedule-id">
+                        <div class="mb-3">
+                            <label class="form-label">Group</label>
+                            <input type="text" class="form-control" id="edit-group-name" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit-frequency" class="form-label">Frequency</label>
+                            <select class="form-select" id="edit-frequency" required>
+                                <option value="hourly">Hourly</option>
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                            </select>
+                        </div>
+                        <div class="mb-3" id="edit-day-select-container" style="display: none;">
+                            <label for="edit-specific-day" class="form-label">Day</label>
+                            <select class="form-select" id="edit-specific-day">
+                                <!-- Will be populated based on frequency -->
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit-specific-hour" class="form-label">Hour (0-23)</label>
+                            <input type="number" class="form-control" id="edit-specific-hour" min="0" max="23" value="0">
+                            <div class="form-text">Choose the hour when the crawl should run (0-23)</div>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="edit-active" checked>
+                            <label class="form-check-label" for="edit-active">Active</label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="update-schedule">Update Schedule</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // DOM elements
+        const schedulesListEl = document.getElementById('schedules-list');
+        const groupSelectEl = document.getElementById('group-select');
+        const frequencyEl = document.getElementById('frequency');
+        const specificDayEl = document.getElementById('specific-day');
+        const daySelectContainerEl = document.getElementById('day-select-container');
+        const specificHourEl = document.getElementById('specific-hour');
+        const submitScheduleBtn = document.getElementById('submit-schedule');
+        
+        // Edit form elements
+        const editScheduleIdEl = document.getElementById('edit-schedule-id');
+        const editGroupNameEl = document.getElementById('edit-group-name');
+        const editFrequencyEl = document.getElementById('edit-frequency');
+        const editSpecificDayEl = document.getElementById('edit-specific-day');
+        const editDaySelectContainerEl = document.getElementById('edit-day-select-container');
+        const editSpecificHourEl = document.getElementById('edit-specific-hour');
+        const editActiveEl = document.getElementById('edit-active');
+        const updateScheduleBtn = document.getElementById('update-schedule');
+
+        // Load data on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchGroups();
+            fetchSchedules();
+            
+            // Set up frequency change handlers
+            frequencyEl.addEventListener('change', updateDaySelect);
+            editFrequencyEl.addEventListener('change', updateEditDaySelect);
+            
+            // Initial population of day selects
+            updateDaySelect();
+            updateEditDaySelect();
+        });
+
+        // Add event listeners
+        submitScheduleBtn.addEventListener('click', addSchedule);
+        updateScheduleBtn.addEventListener('click', updateSchedule);
+
+        async function fetchGroups() {
+            try {
+                const response = await fetch('/api/groups');
+                const groups = await response.json();
+                
+                if (groups.length === 0) {
+                    groupSelectEl.innerHTML = '<option value="">No groups available - create one first</option>';
+                    submitScheduleBtn.disabled = true;
+                    return;
+                }
+                
+                // Populate group select
+                groupSelectEl.innerHTML = '<option value="">Select a domain group</option>';
+                groups.forEach(group => {
+                    groupSelectEl.innerHTML += `<option value="${group.id}">${group.name}</option>`;
+                });
+                
+                submitScheduleBtn.disabled = false;
+            } catch (error) {
+                console.error('Error fetching groups:', error);
+                groupSelectEl.innerHTML = '<option value="">Error loading groups</option>';
+                submitScheduleBtn.disabled = true;
+            }
+        }
+
+        async function fetchSchedules() {
+            try {
+                const response = await fetch('/api/schedule');
+                const schedules = await response.json();
+                
+                if (schedules.length === 0) {
+                    schedulesListEl.innerHTML = '<p>No scheduled groups yet.</p>';
+                    return;
+                }
+                
+                let html = '';
+                schedules.forEach(schedule => {
+                    const statusClass = schedule.active ? 'schedule-active' : 'schedule-inactive';
+                    const statusText = schedule.active ? 'Active' : 'Inactive';
+                    const lastRun = schedule.last_run ? new Date(schedule.last_run).toLocaleString() : 'Never';
+                    const nextRun = new Date(schedule.next_run).toLocaleString();
+                    
+                    let frequencyText = schedule.frequency.charAt(0).toUpperCase() + schedule.frequency.slice(1);
+                    if (schedule.frequency === 'weekly' && schedule.specific_day !== null) {
+                        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                        frequencyText += ` (${days[schedule.specific_day]})`;
+                    } else if (schedule.frequency === 'monthly' && schedule.specific_day !== null) {
+                        frequencyText += ` (Day ${schedule.specific_day})`;
+                    }
+                    
+                    if (schedule.specific_hour !== null) {
+                        frequencyText += ` at ${schedule.specific_hour}:00`;
+                    }
+                    
+                    html += `
+                        <div class="schedule-item mb-3 p-3 border rounded">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5>${schedule.group_name} <span class="badge bg-primary">${schedule.domain_count} domains</span></h5>
+                                <div>
+                                    <button class="btn btn-sm btn-success run-now" data-id="${schedule.id}">
+                                        Run Now
+                                    </button>
+                                    <button class="btn btn-sm btn-primary edit-schedule" data-id="${schedule.id}">
+                                        Edit
+                                    </button>
+                                    <button class="btn btn-sm btn-danger remove-schedule" data-id="${schedule.id}">
+                                        Remove
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <span class="${statusClass}">${statusText}</span>
+                                <span class="ms-3">Frequency: ${frequencyText}</span>
+                                <span class="ms-3">Last Run: ${lastRun}</span>
+                            </div>
+                            <div class="mt-1">
+                                <span class="next-run">Next Run: ${nextRun}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                schedulesListEl.innerHTML = html;
+                
+                // Add event listeners
+                document.querySelectorAll('.edit-schedule').forEach(btn => {
+                    btn.addEventListener('click', () => openEditModal(btn.dataset.id));
+                });
+                
+                document.querySelectorAll('.remove-schedule').forEach(btn => {
+                    btn.addEventListener('click', () => removeSchedule(btn.dataset.id));
+                });
+                
+                document.querySelectorAll('.run-now').forEach(btn => {
+                    btn.addEventListener('click', () => runScheduleNow(btn.dataset.id));
+                });
+            } catch (error) {
+                console.error('Error fetching schedules:', error);
+                schedulesListEl.innerHTML = '<p class="text-danger">Error loading schedules.</p>';
+            }
+        }
+        async function fetchSchedules() {
+            try {
+                const response = await fetch('/api/schedule');
+                const schedules = await response.json();
+                
+                if (schedules.length === 0) {
+                    schedulesListEl.innerHTML = '<p>No scheduled domains yet.</p>';
+                    return;
+                }
+                
+                let html = '';
+                schedules.forEach(schedule => {
+                    const statusClass = schedule.active ? 'schedule-active' : 'schedule-inactive';
+                    const statusText = schedule.active ? 'Active' : 'Inactive';
+                    const lastRun = schedule.last_run ? new Date(schedule.last_run).toLocaleString() : 'Never';
+                    const nextRun = new Date(schedule.next_run).toLocaleString();
+                    
+                    let frequencyText = schedule.frequency.charAt(0).toUpperCase() + schedule.frequency.slice(1);
+                    if (schedule.frequency === 'weekly' && schedule.specific_day !== null) {
+                        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                        frequencyText += ` (${days[schedule.specific_day]})`;
+                    } else if (schedule.frequency === 'monthly' && schedule.specific_day !== null) {
+                        frequencyText += ` (Day ${schedule.specific_day})`;
+                    }
+                    
+                    if (schedule.specific_hour !== null) {
+                        frequencyText += ` at ${schedule.specific_hour}:00`;
+                    }
+                    
+                    html += `
+                        <div class="schedule-item mb-3 p-3 border rounded">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5>${schedule.domain_url}</h5>
+                                <div>
+                                    <button class="btn btn-sm btn-success run-now" data-id="${schedule.id}">
+                                        Run Now
+                                    </button>
+                                    <button class="btn btn-sm btn-primary edit-schedule" data-id="${schedule.id}">
+                                        Edit
+                                    </button>
+                                    <button class="btn btn-sm btn-danger remove-schedule" data-id="${schedule.id}">
+                                        Remove
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <span class="${statusClass}">${statusText}</span>
+                                <span class="ms-3">Frequency: ${frequencyText}</span>
+                                <span class="ms-3">Last Run: ${lastRun}</span>
+                            </div>
+                            <div class="mt-1">
+                                <span class="next-run">Next Run: ${nextRun}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                schedulesListEl.innerHTML = html;
+                
+                // Add event listeners
+                document.querySelectorAll('.edit-schedule').forEach(btn => {
+                    btn.addEventListener('click', () => openEditModal(btn.dataset.id));
+                });
+                
+                document.querySelectorAll('.remove-schedule').forEach(btn => {
+                    btn.addEventListener('click', () => removeSchedule(btn.dataset.id));
+                });
+                
+                document.querySelectorAll('.run-now').forEach(btn => {
+                    btn.addEventListener('click', () => runScheduleNow(btn.dataset.id));
+                });
+            } catch (error) {
+                console.error('Error fetching schedules:', error);
+                schedulesListEl.innerHTML = '<p class="text-danger">Error loading schedules.</p>';
+            }
+        }
+
+        function updateDaySelect() {
+            const frequency = frequencyEl.value;
+            
+            if (frequency === 'weekly') {
+                daySelectContainerEl.style.display = 'block';
+                specificDayEl.innerHTML = '';
+                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                days.forEach((day, index) => {
+                    specificDayEl.innerHTML += `<option value="${index}">${day}</option>`;
+                });
+            } else if (frequency === 'monthly') {
+                daySelectContainerEl.style.display = 'block';
+                specificDayEl.innerHTML = '';
+                for (let i = 1; i <= 31; i++) {
+                    specificDayEl.innerHTML += `<option value="${i}">${i}</option>`;
+                }
+            } else {
+                daySelectContainerEl.style.display = 'none';
+            }
+        }
+
+        function updateEditDaySelect() {
+            const frequency = editFrequencyEl.value;
+            
+            if (frequency === 'weekly') {
+                editDaySelectContainerEl.style.display = 'block';
+                editSpecificDayEl.innerHTML = '';
+                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                days.forEach((day, index) => {
+                    editSpecificDayEl.innerHTML += `<option value="${index}">${day}</option>`;
+                });
+            } else if (frequency === 'monthly') {
+                editDaySelectContainerEl.style.display = 'block';
+                editSpecificDayEl.innerHTML = '';
+                for (let i = 1; i <= 31; i++) {
+                    editSpecificDayEl.innerHTML += `<option value="${i}">${i}</option>`;
+                }
+            } else {
+                editDaySelectContainerEl.style.display = 'none';
+            }
+        }
+
+        async function addSchedule() {
+            const domainId = domainSelectEl.value;
+            const frequency = frequencyEl.value;
+            
+            if (!domainId) {
+                alert('Please select a domain');
+                return;
+            }
+            
+            let specificDay = null;
+            if (frequency === 'weekly' || frequency === 'monthly') {
+                specificDay = parseInt(specificDayEl.value);
+            }
+            
+            const specificHour = parseInt(specificHourEl.value);
+            if (isNaN(specificHour) || specificHour < 0 || specificHour > 23) {
+                alert('Please enter a valid hour (0-23)');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/schedule', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        domain_id: parseInt(domainId),
+                        frequency,
+                        specific_day: specificDay,
+                        specific_hour: specificHour
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Close modal and reset form
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('addScheduleModal'));
+                    modal.hide();
+                    document.getElementById('add-schedule-form').reset();
+                    
+                    // Refresh schedules list
+                    fetchSchedules();
+                } else {
+                    alert('Failed to add schedule: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error adding schedule:', error);
+                alert('Error adding schedule');
+            }
+        }
+
+        async function openEditModal(id) {
+            try {
+                const response = await fetch('/api/schedule');
+                const schedules = await response.json();
+                
+                const schedule = schedules.find(s => s.id === parseInt(id));
+                if (!schedule) {
+                    alert('Schedule not found');
+                    return;
+                }
+                
+                // Populate form
+                editScheduleIdEl.value = schedule.id;
+                editDomainUrlEl.value = schedule.domain_url;
+                editFrequencyEl.value = schedule.frequency;
+                editActiveEl.checked = schedule.active;
+                
+                // Update day select based on frequency
+                updateEditDaySelect();
+                
+                // Set day and hour values
+                if (schedule.specific_day !== null) {
+                    editSpecificDayEl.value = schedule.specific_day;
+                }
+                
+                if (schedule.specific_hour !== null) {
+                    editSpecificHourEl.value = schedule.specific_hour;
+                }
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('editScheduleModal'));
+                modal.show();
+            } catch (error) {
+                console.error('Error fetching schedule details:', error);
+                alert('Error fetching schedule details');
+            }
+        }
+
+        async function updateSchedule() {
+            const id = editScheduleIdEl.value;
+            const frequency = editFrequencyEl.value;
+            
+            let specificDay = null;
+            if (frequency === 'weekly' || frequency === 'monthly') {
+                specificDay = parseInt(editSpecificDayEl.value);
+            }
+            
+            const specificHour = parseInt(editSpecificHourEl.value);
+            if (isNaN(specificHour) || specificHour < 0 || specificHour > 23) {
+                alert('Please enter a valid hour (0-23)');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/schedule/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        frequency,
+                        specific_day: specificDay,
+                        specific_hour: specificHour,
+                        active: editActiveEl.checked
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('editScheduleModal'));
+                    modal.hide();
+                    
+                    // Refresh schedules list
+                    fetchSchedules();
+                } else {
+                    alert('Failed to update schedule: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error updating schedule:', error);
+                alert('Error updating schedule');
+            }
+        }
+
+        async function removeSchedule(id) {
+            if (!confirm('Are you sure you want to remove this schedule?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/schedule/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    fetchSchedules();
+                } else {
+                    alert('Failed to remove schedule: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error removing schedule:', error);
+                alert('Error removing schedule');
+            }
+        }
+
+        async function runScheduleNow(id) {
+            try {
+                const response = await fetch(`/api/schedule/${id}/run`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Crawl started for this domain');
+                    fetchSchedules();
+                } else {
+                    alert('Failed to run schedule: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error running schedule:', error);
+                alert('Error running schedule');
+            }
+        }
+    </script>
+</body>
+</html>
