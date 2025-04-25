@@ -1,12 +1,16 @@
 # Web Crawler GUI
 
+> [!IMPORTANT]
+> This Sofware Is Still Under Active Development. Updates May Break The Crawler. Read The Wiki Before Updating And Installing.
+
 A simple web-based GUI interface for managing and controlling a web crawler built in Go.
 
 ![Web Crawler Dashboard](image/dashboard.png)
 
-## ⚠️ IMPORTANT LEGAL NOTICE
 
-**This software is provided for EDUCATIONAL PURPOSES ONLY**
+## ⚠️ IMPORTANT LEGAL NOTICE
+> [!WARNING]
+> **This software is provided for EDUCATIONAL PURPOSES ONLY**
 
 By using this repository, code, or any related materials, you accept full responsibility for your actions. The authors and contributors assume ZERO LIABILITY and provide NO WARRANTY whatsoever. You are solely responsible for how you use this tool and for any consequences that may result from your use.
 
@@ -31,7 +35,8 @@ This application provides a user-friendly dashboard to control a web crawler tha
 
 ## ⚠️ DEVELOPMENT STATUS
 
-**This software is in EARLY DEVELOPMENT stage**
+> [!NOTE]
+> **This software is in an EARLY DEVELOPMENT stage**
 
 - Some features may be unstable or break unexpectedly
 - The codebase needs significant cleanup
@@ -48,28 +53,47 @@ This application provides a user-friendly dashboard to control a web crawler tha
 ### Setup
 
 1. Clone the repository:
-git clone https://github.com/yourusername/web-crawler-gui.git
-cd web-crawler-gui
+   ```bash
+   git clone https://github.com/yourusername/web-crawler-gui.git
+   ```
+   
+   ```bash
+   cd web-crawler-gui
+   ```
 
-2. Install dependencies:
-go mod download
+3. Install dependencies:
+   ```bash
+   go mod download
+   ```
 
-3. Run the application:
-make run
 
-4. Open your browser and navigate to:
+5. Run the application:
+   ```bash
+   make run
+   ```
+
+
+7. Open your browser and navigate to:
 http://localhost:8080
 
 ## Makefile Commands
 
 run:
-	go run .
+   ```bash
+   go run .
+   ```
 
 build:
-	go build -o dist/crawler
+   ```bash
+   go build -o dist/crawler
+   ```
+	
 
 clean:
-	rm -rf dist/
+   ```bash
+   rm -rf dist/
+   ```
+	
 
 ## Usage
 
@@ -98,10 +122,10 @@ The application uses SQLite with the following tables:
 
 ## Known Issues
 
-- Configuration may not always persist between server restarts
-- CSV import may fail with malformed URLs
-- Activity log doesn't auto-scroll to the bottom
-- Full page download may cause memory issues with large sites
+- [ ] Configuration may not always persist between server restarts
+- [ ] CSV import may fail with malformed URLs
+- [ ] Activity log doesn't auto-scroll to the bottom
+- [ ] Full page download may cause memory issues with large sites
 
 ## Future Improvements
 
